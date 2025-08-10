@@ -1,0 +1,152 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+  relationMode = "foreignKeys"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  email     String   @unique
+  password  String
+  role      String   @default("user")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  purchases Purchase[]
+  sales     Sale[]
+  returns   Return[]
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  code        String   @unique
+  series      String
+  size        String?
+  style       String?
+  hiddenRatio Float?
+  version     String?
+  image       String?
+  // 盲盒规格字段
+  boxesPerCase Int?    // 一箱有几端
+  boxesPerSet  Int?    // 一端有几盒（全套普通款个数）
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  purchases   Purchase[]
+  sales       Sale[]
+  inventory   Inventory[]
+  notificationLogs NotificationLog[]
+}
+
+model Purchase {
+  id            String   @id @default(cuid())
+  purchaseNo    String   @unique
+  supplier      String
+  manager       String
+  purchaseTime  DateTime
+  purchaseType  String
+  quantity      Int      // 数量
+  unit          String   @default("box") // 单位：case(箱)/casebox(端盒)/box(盒)
+  unitCost      Float    // 单位成本
+  totalCost     Float
+  batchNo       String?
+  status        String   @default("pending")
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  productId     String
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Sale {
+  id            String   @id @default(cuid())
+  saleTime      DateTime
+  sender        String
+  platform      String
+  saleType      String
+  quantity      Int      // 数量
+  unit          String   @default("box") // 单位：case(箱)/casebox(端盒)/box(盒)
+  salePrice     Float    // 单位售价
+  customerName  String?
+  receiveMethod String
+  expressCompany String?
+  trackingNo    String?
+  shippingFee   Float?
+  profit        Float?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  productId     String
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  returns       Return[]
+}
+
+model Inventory {
+  id          String   @id @default(cuid())
+  productId   String
+  quantity    Int      // 以盒（box）为单位的库存数量
+  avgCost     Float    // 每盒的平均成本
+  lastUpdated DateTime @default(now())
+  
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  @@unique([productId])
+}
+
+model InventoryNotification {
+  id          String   @id @default(cuid())
+  email       String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([email])
+}
+
+model NotificationLog {
+  id          String   @id @default(cuid())
+  productId   String
+  productName String
+  quantity    Int
+  threshold   Int      @default(2)
+  email       String
+  sentAt      DateTime @default(now())
+  success     Boolean
+  
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model Return {
+  id            String   @id @default(cuid())
+  returnNo      String   @unique
+  returnTime    DateTime @default(now())
+  quantity      Int      // 退货数量（以盒为单位）
+  returnPrice   Float    // 退货单价
+  totalAmount   Float    // 退货总金额
+  packageIntact Boolean  @default(true)  // 包装是否完整
+  resalable     Boolean  @default(true)  // 是否可二次出售
+  reason        String?  // 退货原因
+  notes         String?  // 备注
+  status        String   @default("pending") // 状态：pending/processing/completed/rejected
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  saleId        String
+  sale          Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
